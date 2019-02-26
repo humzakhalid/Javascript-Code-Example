@@ -1,0 +1,142 @@
+var ReferHub = require("ReferHub");
+var GameController = require("GameController");
+cc.Class({
+    extends: cc.Component,
+
+    properties: {
+        ball: {
+            default: null,
+            type: cc.Node,
+        },
+        BallPrefab: {
+            default: null,
+            type: cc.Prefab,
+        },
+        limitDistY: 300,
+        limitDistX: 100,
+        ScaleFactor: 2,
+    },
+
+    start() {
+        //set intial position of the ball
+        this.targetPos = this.ball.position;                             
+    },
+
+    onLoad() {
+        // on finger pressed
+        this.node.on(cc.Node.EventType.TOUCH_START, function(event) {
+            if (this.currID == null) {
+                this.currID = event.getID();
+                this.start_touch = event.getLocation();
+                this.tempball = this.newBall(this.node.parent, this.ball.position);
+                ReferHub.instance.PowerBar.node.active = true;
+            }
+            event.stopPropagation();
+        }, this);
+
+        // on finger moved
+        this.node.on(cc.Node.EventType.TOUCH_MOVE, function(event) {
+            if (event.getID() == this.currID) {
+                this.curr_touch = event.getLocation();
+                var postemp = this.node.parent.convertToNodeSpaceAR(this.curr_touch);
+                var postemp1 = this.node.parent.convertToNodeSpaceAR(this.curr_touch);
+                postemp.x = 0;
+                var power = postemp.sub(this.ball.position).mag();
+
+                if (power > this.limitDistY) {
+                    power = this.limitDistY;
+                }
+
+                if (power <= this.limitDistY && postemp.y <= this.ball.y) {
+
+                     // ball movements
+                    if (this.shouldMoveX(power / this.limitDistY)) {
+                        this.tempball.x = postemp1.x;
+                    } else {
+                        var limit = this.limitDistX * (power / this.limitDistY);
+                        var isleft = this.start_touch.x > this.curr_touch.x ? -1 : 1;
+                        this.tempball.x = (isleft * limit);
+                    }
+                    if (this.shouldMoveY()) {
+                        this.tempball.y = postemp1.y;
+                    } else {
+                        if (postemp.y < 0) {
+                            this.tempball.y = this.ball.y - this.limitDistY;
+                        }
+                    }
+
+                    // scaling ball according to power
+                    var scalex = this.tempball.scaleX;
+                    var scaley = this.tempball.scaleY;
+                    scalex = 1 + (power / (this.limitDistY / this.ScaleFactor));
+                    scaley = 1 + (power / (this.limitDistY / this.ScaleFactor));
+                    this.tempball.setScale(scalex, scaley);
+
+                    // setting gizmo elements
+                    ReferHub.instance.PowerBar.setBarSpeed(power / this.limitDistY);
+                    GameController.instance.setAimRotation(power > 60, power / this.limitDistY, this.tempball);
+                    ReferHub.instance.TargetPowerController.setDistance(power, this.tempball);
+                }
+
+            }
+
+            event.stopPropagation();
+        }, this);
+
+        // on finger lifted
+        this.node.on(cc.Node.EventType.TOUCH_END, function(event) {
+            if (event.getID() == this.currID) {
+                this.end_touch = event.getLocation();
+                this.startNextPhase();
+            }
+            event.stopPropagation();
+        }, this);
+      
+        // on finger moved out of screen
+        this.node.on(cc.Node.EventType.TOUCH_CANCEL, function(event) {
+            if (event.getID() == this.currID) {
+                this.end_touch = event.getLocation();
+                this.startNextPhase();
+            }
+            event.stopPropagation();
+        }, this);
+
+    },
+
+    // constraint on y-axis
+    shouldMoveY: function() {
+        var start = this.start_touch;
+        var curr = this.curr_touch;
+        var disty = Math.abs(start.y - curr.y);
+        return disty <= this.limitDistY;
+    },
+  
+    // constraint on x-axis
+    shouldMoveX: function(valx) {
+        var start = this.start_touch;
+        var curr = this.curr_touch;
+        var distx = Math.abs(start.x - curr.x);
+        return distx <= (this.limitDistX * valx);
+    },
+
+    // set the next phase of the turn
+    startNextPhase: function() {
+        var spin = this.tempball.x - this.ball.x;
+        var power = Math.abs(this.tempball.y - this.ball.y);
+      
+        if (power > 60) {
+            GameController.instance.setAim(power / this.limitDistY, spin / this.limitDistX);
+        }
+        ReferHub.instance.PowerBar.node.active = false;
+        this.currID = null;
+        this.tempball.destroy();
+    },
+
+    // create new UI Golf-ball
+    newBall: function(parent, position) {
+        const ball = cc.instantiate(this.BallPrefab);
+        ball.position = position;
+        parent.addChild(ball);
+        return ball;
+    },
+});
