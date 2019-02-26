@@ -1,0 +1,77 @@
+var ObsticleSpawner = pc.createScript('obsticleSpawner');
+
+
+ObsticleSpawner.attributes.add('rowIdentifier', { type: 'entity', title: 'Obsticle_Row_Identifier: ',  description: "It contains a class that will tell which row will be used for obsticle spawning."});
+ObsticleSpawner.attributes.add('obsticleGenerator', { type: 'entity', title: 'Obsticle_Generator: ',  description: "It will spawn the obsticle on provided row"});
+
+
+ObsticleSpawner.attributes.add('rows', { type: 'entity', title: 'Rows: ', default: [], array: true, description: "Array of entities of rows."});
+
+var self;
+var grid2dArray=[];
+var ArrIndex=0;
+var rowSize=0;
+
+ObsticleSpawner.prototype.initialize = function() {
+    self=this;
+    ArrIndex=0;
+    rowSize=0;
+    grid2dArray=[];
+    this.rowDiff=0;
+
+};
+var make2dArray=function(totalRows)
+{
+    for(var i=0;i<totalRows;i++)
+    {
+        grid2dArray[i]=[];
+    }
+    for(var k=0;k<grid2dArray.length;k++)
+    {
+        for(var l=0;l<3;l++)
+        {
+            grid2dArray[k][l]=-1;
+        }
+    }
+};
+
+ObsticleSpawner.prototype.setValIn2Grid=function(x,y,val)
+{
+    grid2dArray[x][y]=val;
+};
+ObsticleSpawner.prototype.getValIn2Grid=function(x,y)
+{
+    var arr=grid2dArray[x][y];
+    return arr;
+};
+
+
+// update code called every frame
+ObsticleSpawner.prototype.init_obsticleSpawning = function() {
+    var rowNumber=false;
+    var curr_pos=this.rows[0].getPosition().z;
+
+    this.lastrowPos=this.rows[2].getPosition().z;
+    this.rowDiff= (this.rows[0].getPosition().z-this.rows[1].getPosition().z);
+    
+    this.totalRoadLength=(this.rows[0].getPosition().z-this.rows[2].getPosition().z);
+    rowSize=((((Math.abs(this.totalRoadLength)) / this.rowDiff) | 0)+2);
+    console.log("size of the array of atif bro : "+rowSize);
+    make2dArray(rowSize);
+
+
+
+    while(curr_pos>this.lastrowPos)
+    {
+        curr_pos-=this.rowDiff;
+        rowNumber=this.rowIdentifier.script.obsticleRowIdentifier.getRowNumberForObsticleSpawning();
+        if(rowNumber===true)
+        {
+            this.obsticleGenerator.script.obsticleGenerator.generateObsticles(curr_pos,this.rows[0].getPosition().z,this.rowDiff,this.entity,ArrIndex);
+        }
+
+        ArrIndex=ArrIndex+1;
+
+    }
+    
+};
